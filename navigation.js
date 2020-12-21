@@ -20,7 +20,6 @@ var navbar =
 '<li><a href="publications.html">Publications</a></li>',
 '<li><a href="services.html">Services</a></li>',
 '<li><a href="projects.html">Projects</a></li>',
-'<li><a href="activities.html">Activities</a></li>',
 '<li><a href="courses.html">Courses</a></li>',
 '<li><a href="students.html">Students</a></li>',
 '<li><a href="contact.html">Contact</a></li>',
