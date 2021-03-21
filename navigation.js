@@ -8,7 +8,7 @@ var navbar =
 '<a href="home.html"></a>',
 '</div>',
 '<div id="title">',
-'<h1>Welcome to Hanzhou Wu\'s Homepage</h1>',
+'<h1>Welcome to Dr. Hanzhou Wu\'s Homepage</h1>',
 '</div>',
 '</div>',
 
