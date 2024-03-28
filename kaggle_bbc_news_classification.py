@@ -1,0 +1,151 @@
+# https://hzwu.github.io/WuCode.html
+import pandas as pd
+from collections import Counter
+import torch
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.dataset import random_split
+from transformers import BertModel
+from torch import nn
+from torch.optim import Adam
+from transformers import BertTokenizer
+import numpy as np
+
+trn_file = './tasks/Kaggle-BBC-News-Classification/train.csv'
+tst_file = './tasks/Kaggle-BBC-News-Classification/test.csv'
+
+df_trn = pd.read_csv(trn_file)
+df_tst = pd.read_csv(tst_file)
+print(df_trn.shape, df_tst.shape)
+
+count = Counter(df_trn.Category)
+cls2idx = {}
+idx2cls = {}
+for idx, cls in enumerate(count):
+    cls2idx[cls] = idx
+    idx2cls[idx] = cls
+print(idx2cls, cls2idx)
+
+df_trn['Category'] = df_trn.Category.map(cls2idx)
+print(df_trn.head())
+
+tokenizer = BertTokenizer.from_pretrained('./pt-models/bert-base-cased')
+
+
+class BBCNewsDataset(Dataset):
+    def __init__(self, texts, labels=None):
+        self.texts = [tokenizer(text, padding='max_length', max_length=512, truncation=True, return_tensors='pt') for
+                      text
+                      in texts]
+        self.labels = labels
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        text = self.texts[idx]
+        if self.labels is not None:
+            label = self.labels[idx]
+            return text, torch.tensor(label)
+        else:
+            return text
+
+
+dataset_trn = BBCNewsDataset(df_trn['Text'].values, df_trn['Category'].values)
+dataset_tst = BBCNewsDataset(df_tst['Text'].values)
+print('before split:', len(dataset_trn), len(dataset_tst))
+
+size_trn = int(0.8 * len(dataset_trn))
+size_val = len(dataset_trn) - size_trn
+dataset_trn, dataset_val = random_split(dataset_trn, [size_trn, size_val], generator=torch.Generator().manual_seed(42))
+print(' after split:', len(dataset_trn), len(dataset_val), '( sum =', len(dataset_trn) + len(dataset_val), ')',
+      len(dataset_tst))
+
+
+class BertClassifier(nn.Module):
+    def __init__(self, dropout=0.5):
+        super(BertClassifier, self).__init__()
+        self.bert = BertModel.from_pretrained('./pt-models/bert-base-cased')
+        self.dropout = nn.Dropout(dropout)
+        self.linear = nn.Linear(768, 5)
+        self.relu = nn.ReLU()
+
+    def forward(self, input_id, mask):
+        _, pooled_output = self.bert(input_ids=input_id, attention_mask=mask, return_dict=False)
+        dropout_output = self.dropout(pooled_output)
+        linear_output = self.linear(dropout_output)
+        final_layer = self.relu(linear_output)
+        return final_layer
+
+
+batch_size = 8
+
+loader_trn = DataLoader(dataset_trn, batch_size=batch_size, shuffle=True)
+loader_val = DataLoader(dataset_val, batch_size=batch_size)
+loader_tst = DataLoader(dataset_tst, batch_size=batch_size)
+
+USE_CUDA = torch.cuda.is_available()
+DEVICE = torch.device('cuda' if USE_CUDA else 'cpu')
+print(DEVICE)
+
+model = BertClassifier().to(DEVICE)
+criterion = nn.CrossEntropyLoss().to(DEVICE)
+optimizer = Adam(model.parameters(), lr=1e-5)
+
+def train(trn_data, val_data, nb_epoch):
+    model.train()
+    total_steps = 0
+    total_loss = 0
+    total_txts = 0
+    for batch in trn_data:
+        model.zero_grad()
+        texts, labels = batch
+        labels = labels.to(DEVICE)
+        idxs = texts['input_ids'].squeeze().to(DEVICE)
+        mask = texts['attention_mask'].squeeze().to(DEVICE)
+        pred = model(idxs, mask)
+        loss = criterion(pred, labels)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+        total_txts += len(labels)
+        total_steps += 1
+        if total_steps % 20 == 0:
+            print('Training: epoch = {}, step = {}, ave loss = {:.4f}'.format(1 + nb_epoch, total_steps,
+                                                                              total_loss / total_txts))
+    model.eval()
+    total_corrects = 0
+    total_examples = 0
+    for batch in val_data:
+        texts, labels = batch
+        labels = labels.to(DEVICE)
+        idxs = texts['input_ids'].squeeze().to(DEVICE)
+        mask = texts['attention_mask'].squeeze().to(DEVICE)
+        pred = model(idxs, mask)
+        total_corrects += (pred.argmax(dim=1).view(labels.size()) == labels).sum().item()
+        total_examples += len(labels)
+    acc = total_corrects / total_examples
+    print('Validation: acc = {:.4f}'.format(acc))
+    return acc
+
+
+def test(tst_data):
+    model.eval()
+    pred_list = []
+    for batch in tst_data:
+        idxs = batch['input_ids'].squeeze().to(DEVICE)
+        mask = batch['attention_mask'].squeeze().to(DEVICE)
+        pred = model(idxs, mask)
+        pred_list.extend(pred.argmax(dim=1).tolist())
+    return pred_list
+
+for nb_epoch in range(50):
+    acc = train(loader_trn, loader_val, nb_epoch)
+    if acc > 0.975:
+        break
+
+pred_list = test(loader_tst)
+df_tst['Category'] = [idx2cls[idx] for idx in pred_list]
+df_tst.drop(columns='Text', inplace=True)
+sub_file = './tasks/Kaggle-BBC-News-Classification/sample_submission_2.csv'
+df_tst.to_csv(sub_file, index=False)
+print('Submission file generated sucessfully ...')
