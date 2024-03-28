@@ -34,8 +34,7 @@ tokenizer = BertTokenizer.from_pretrained('./pt-models/bert-base-cased')
 class BBCNewsDataset(Dataset):
     def __init__(self, texts, labels=None):
         self.texts = [tokenizer(text, padding='max_length', max_length=512, truncation=True, return_tensors='pt') for
-                      text
-                      in texts]
+                      text in texts]
         self.labels = labels
 
     def __len__(self):
