@@ -1,3 +1,4 @@
+% https://hzwu.github.io/WuCode.html
 function [message_bit] = extract_SVD(watermarked_block, quantization_step)
 
 D = svd(watermarked_block);
