@@ -1,3 +1,4 @@
+% https://hzwu.github.io/WuCode.html
 function [watermarked_block] = embed_SVD(original_block, message_bit, quantization_step)
 
 [U, D, V] = svd(original_block);
