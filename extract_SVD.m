@@ -1,0 +1,12 @@
+function [message_bit] = extract_SVD(watermarked_block, quantization_step)
+
+D = svd(watermarked_block);
+B = floor(D(1) / quantization_step) * quantization_step;
+Q = quantization_step / 4;
+R = D(1) - B;
+message_bit = 0;
+if R > (2 * Q)
+    message_bit = 1;
+end
+
+% =========================================================================
