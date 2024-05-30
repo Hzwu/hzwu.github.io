@@ -147,4 +147,4 @@ df_tst['Category'] = [idx2cls[idx] for idx in pred_list]
 df_tst.drop(columns='Text', inplace=True)
 sub_file = './tasks/Kaggle-BBC-News-Classification/sample_submission_2.csv'
 df_tst.to_csv(sub_file, index=False)
-print('Submission file generated sucessfully ...')
+print('Submission file generated successfully ...')
