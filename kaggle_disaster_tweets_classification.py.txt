@@ -21,7 +21,7 @@ df_tst['merged_text'] = df_tst['keyword'].astype(str) + ' [A] ' + df_tst['locati
     'text'].astype(str)
 
 df_trn.drop(columns=['id', 'keyword', 'location', 'text'], inplace=True)
-df_tst.drop(columns=['id', 'keyword', 'location', 'text'], inplace=True)
+df_tst.drop(columns=['keyword', 'location', 'text'], inplace=True)
 
 print(df_trn.head())
 print(df_tst.head())
@@ -137,7 +137,7 @@ def test(tst_data):
     return pred_list
 
 
-for nb_epoch in range(32):
+for nb_epoch in range(8):
     acc = train(loader_trn, loader_val, nb_epoch)
     if acc > 0.8:
         break
